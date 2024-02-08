@@ -57,3 +57,13 @@ VALUES (
 UPDATE `posts`
 SET `content` = 'Content for the first post'
 WHERE `id` = 1;
+CREATE TABLE IF NOT EXISTS `users`(
+    `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `username` VARCHAR(255) NOT NULL,
+    `email` VARCHAR(255) NOT NULL,
+    `password` VARCHAR(255) NOT NULL,
+    `is_active` BOOLEAN NOT NULL DEFAULT TRUE,
+    `is_superuser` BOOLEAN NOT NULL DEFAULT FALSE,
+    `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8;
