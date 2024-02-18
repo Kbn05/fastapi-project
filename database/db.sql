@@ -67,3 +67,55 @@ CREATE TABLE IF NOT EXISTS `users`(
     `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8;
+ALTER TABLE `posts`
+ADD COLUMN `author_id` INT UNSIGNED NOT NULL;
+ALTER TABLE `posts`
+ADD FOREIGN KEY (`author_id`) REFERENCES `users`(`id`) ON DELETE CASCADE;
+INSERT INTO `posts` (
+        `title`,
+        `content`,
+        `published`,
+        `likes`,
+        `created_at`,
+        `author_id`
+    )
+VALUES (
+        'First Post',
+        'Content for the first post',
+        TRUE,
+        0,
+        DEFAULT,
+        1
+    ),
+    (
+        'Second Post',
+        'Content for the second post',
+        TRUE,
+        10,
+        DEFAULT,
+        7
+    ),
+    (
+        'Third Post',
+        'Content for the third post',
+        TRUE,
+        15,
+        DEFAULT,
+        7
+    ),
+    (
+        'Fourth Post',
+        'Content for the fourth post',
+        FALSE,
+        0,
+        DEFAULT,
+        6
+    ),
+    (
+        'Fifth Post',
+        'Content for the fifth post',
+        FALSE,
+        50,
+        DEFAULT,
+        7
+    );

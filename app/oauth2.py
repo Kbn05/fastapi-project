@@ -42,7 +42,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
     )
     userId = verify_access_token(token, credentials_exception)
     cursor.execute(
-        "SELECT username, email, id FROM users WHERE id = %s", (userId.id,))
+        "SELECT username, email, id, created_at FROM users WHERE id = %s", (userId.id,))
     session = cursor.fetchone()
 
     return session

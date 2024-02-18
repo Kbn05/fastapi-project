@@ -11,13 +11,27 @@ router = APIRouter(
 
 
 @router.get("/posts", response_model=list[ResponsePost])
-async def posts():
-    cursor.execute("SELECT * FROM posts")
+async def posts(limit: int = 10, token: int = Depends(oauth2.get_current_user), search: str = ""):
+    cursor.execute(
+        "SELECT posts.*, users.id, users.username, users.email, users.created_at FROM posts INNER JOIN users ON posts.author_id = users.id WHERE posts.content LIKE %s ORDER BY users.created_at DESC LIMIT %s", ('%' + search + '%', limit,))
     my_posts = cursor.fetchall()
     post_list = []
     if my_posts:
         for post in my_posts:
-            post_dict = dict(zip(cursor.column_names, post))
+            post_dict = {
+                "id": post[0],
+                "title": post[1],
+                "content": post[2],
+                "published": post[3],
+                "likes": post[4],
+                "created_at": post[5],
+                "author": {
+                    "id": post[7],
+                    "username": post[8],
+                    "email": post[9],
+                    "created_at": post[10]
+                }
+            }
             post_list.append(post_dict)
         return post_list
 
@@ -28,10 +42,24 @@ async def posts():
 
 @router.get("/posts/{id}", response_model=ResponsePost)
 async def post(id: int, response: Response):
-    cursor.execute("SELECT * FROM posts WHERE id = %s", (id,))
+    cursor.execute("SELECT posts.*, users.id, users.username, users.email, users.created_at FROM posts INNER JOIN users ON posts.author_id = users.id WHERE posts.id = %s", (id,))
     my_posts = cursor.fetchone()
+    print(my_posts[0])
     if my_posts:
-        post_dict = dict(zip(cursor.column_names, my_posts))
+        post_dict = {
+            "id": my_posts[0],
+            "title": my_posts[1],
+            "content": my_posts[2],
+            "published": my_posts[3],
+            "likes": my_posts[4],
+            "created_at": my_posts[5],
+            "author": {
+                "id": my_posts[7],
+                "username": my_posts[8],
+                "email": my_posts[9],
+                "created_at": my_posts[10]
+            }
+        }
         return post_dict
     # for post in my_posts:
     #     if post['id'] == id:
@@ -45,12 +73,12 @@ async def post(id: int, response: Response):
 
 @router.post("/newpost", status_code=status.HTTP_201_CREATED, response_model=ResponsePost)
 async def newpost(post: CreatePost, token: int = Depends(oauth2.get_current_user)):
-    cursor.execute("INSERT INTO posts (title, content, published, likes) VALUES (%s, %s, %s, %s)",
-                   (post.title, post.content, post.published, post.likes))
+    cursor.execute("INSERT INTO posts (title, content, published, likes, author_id) VALUES (%s, %s, %s, %s, %s)",
+                   (post.title, post.content, post.published, post.likes, token[2]))
     mydbConnect.commit()
     post_id = cursor.lastrowid
     response_data = {"id": post_id, "title": post.title,
-                     "content": post.content, "likes": int(post.likes)}
+                     "content": post.content, "likes": int(post.likes), "author": {"id": token[2], "username": token[0], "email": token[1], "created_at": token[3]}}
     return ResponsePost(**response_data)
     # return f"Post {post.title} created successfully"
 
@@ -59,6 +87,13 @@ async def newpost(post: CreatePost, token: int = Depends(oauth2.get_current_user
 
 @router.delete("/posts/{id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_post(id: int, token: int = Depends(oauth2.get_current_user)):
+    cursor.execute("SELECT author_id FROM posts WHERE id = %s", (id,))
+    my_posts = cursor.fetchone()
+    if my_posts:
+        post_dict = dict(zip(cursor.column_names, my_posts))
+        if post_dict['author_id'] != token[2]:
+            raise HTTPException(
+                status_code=403, detail="You are not authorized to delete this post")
     cursor.execute("DELETE FROM posts WHERE id = %s", (id,))
     mydbConnect.commit()
     if cursor.rowcount < 1:
@@ -69,12 +104,19 @@ async def delete_post(id: int, token: int = Depends(oauth2.get_current_user)):
 
 @router.put("/posts/{id}", status_code=status.HTTP_202_ACCEPTED, response_model=ResponsePost)
 async def update_post(id: int, post_a: CreatePost, token: int = Depends(oauth2.get_current_user)):
-    cursor.execute("UPDATE posts SET title = %s, content = %s, published = %s, likes = %s WHERE id = %s", (
-        post_a.title, post_a.content, post_a.published, post_a.likes, id))
+    cursor.execute("SELECT author_id FROM posts WHERE id = %s", (id,))
+    my_posts = cursor.fetchone()
+    if my_posts:
+        post_dict = dict(zip(cursor.column_names, my_posts))
+        if post_dict['author_id'] != token[2]:
+            raise HTTPException(
+                status_code=403, detail="You are not authorized to update this post")
+    cursor.execute("UPDATE posts SET title = %s, content = %s, published = %s, likes = %s, author_id = %s WHERE id = %s", (
+        post_a.title, post_a.content, post_a.published, post_a.likes, token[2], id))
     mydbConnect.commit()
     if cursor.rowcount < 1:
         raise HTTPException(status_code=404, detail="Post not found")
     post_id = cursor.lastrowid
     response_data = {"id": id, "title": post_a.title,
-                     "content": post_a.content, "likes": int(post_a.likes)}
+                     "content": post_a.content, "likes": int(post_a.likes), "author": {"id": token[2], "username": token[0], "email": token[1], "created_at": token[3]}}
     return ResponsePost(**response_data)

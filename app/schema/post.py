@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
+from .user import ResponseUser
 
 # Create a Pydantic model to use as a request body
 
@@ -21,6 +22,7 @@ class CreatePost(Post):
 
 class ResponsePost(Post):
     id: int
+    author: ResponseUser
 
     class Config:
         from_attributes = True
