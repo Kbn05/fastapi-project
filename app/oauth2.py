@@ -4,12 +4,13 @@ from datetime import datetime, timedelta
 from fastapi import Depends, status, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from database.conn import cursor, mydbConnect
+from app.schema.config import setting
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
-SECRET_KEY = "052f77666c63cd29e12f9fd2d71c26735bb190d28143b997b812659e4be890db"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+SECRET_KEY = setting.SECRET_KEY
+ALGORITHM = setting.ALGORITHM
+ACCESS_TOKEN_EXPIRE_MINUTES = setting.EXPIRE_TIME
 
 
 def create_access_token(data: dict):

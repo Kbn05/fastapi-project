@@ -120,3 +120,46 @@ async def update_post(id: int, post_a: CreatePost, token: int = Depends(oauth2.g
     response_data = {"id": id, "title": post_a.title,
                      "content": post_a.content, "likes": int(post_a.likes), "author": {"id": token[2], "username": token[0], "email": token[1], "created_at": token[3]}}
     return ResponsePost(**response_data)
+
+@router.get("/posts/{id}/likes", status_code=status.HTTP_202_ACCEPTED)
+async def like_post(id: int, token: int = Depends(oauth2.get_current_user)):
+    cursor.execute("SELECT id FROM posts WHERE id = %s", (id,))
+    post_exists = cursor.fetchone()
+
+    if not post_exists:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    cursor.execute("SELECT posts.id AS post_id, COUNT(likes.user_id) AS total_likes, GROUP_CONCAT(users.username SEPARATOR ', ') AS liked_by FROM posts LEFT JOIN likes ON posts.id = likes.post_id LEFT JOIN users ON likes.user_id = users.id WHERE posts.id = %s GROUP BY posts.id", (id,))
+    like_data = cursor.fetchone()
+
+    if like_data:
+        if like_data[2] is not None:
+            return {
+                "post_id": like_data[0],
+                "total_likes": like_data[1],
+                "liked_by": like_data[2]
+            }
+        else:
+            return {"post_id": like_data[0], "total_likes": 0, "liked_by": ""}
+    else:
+        return {"post_id": id, "total_likes": 0, "liked_by": ""}
+
+@router.post("/posts/{id}/likes", status_code=status.HTTP_201_CREATED)
+async def like_post(id: int, token: int = Depends(oauth2.get_current_user)):
+    cursor.execute("SELECT id FROM posts WHERE id = %s", (id,))
+    post_exists = cursor.fetchone()
+
+    if not post_exists:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    cursor.execute("SELECT * FROM likes WHERE post_id = %s AND user_id = %s", (id, token[2]))
+    like_exists = cursor.fetchone()
+
+    if like_exists:
+        cursor.execute("DELETE FROM likes WHERE post_id = %s AND user_id = %s", (id, token[2]))
+        mydbConnect.commit()
+        return {"message": "Post unliked successfully"}
+
+    cursor.execute("INSERT INTO likes (post_id, user_id) VALUES (%s, %s)", (id, token[2]))
+    mydbConnect.commit()
+    return {"message": "Post liked successfully"}

@@ -119,3 +119,97 @@ VALUES (
         DEFAULT,
         7
     );
+CREATE TABLE IF NOT EXISTS `locations`(
+    `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `latitude` DECIMAL(9, 6) NOT NULL,
+    `longitude` DECIMAL(9, 6) NOT NULL,
+    PRIMARY KEY (`id`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8;
+ALTER TABLE `locations`
+ADD FOREIGN KEY (`id`) REFERENCES `posts`(`id`) ON DELETE CASCADE;
+INSERT INTO `locations` (
+        `id`,
+        `latitude`,
+        `longitude`
+    )
+VALUES (
+        53,
+        7.035262,
+        -73.067737
+    ),
+    (
+        54,
+        7.048775,
+        -73.078787
+    ),
+    (
+        55,
+        7.145176,
+        -73.709435
+    ),
+    (
+        58,
+        7.490777,
+        -75.247947
+    ),
+    (
+        59,
+        7.064514,
+        -73.089676
+    );
+INSERT INTO `locations` (
+        `id`,
+        `latitude`,
+        `longitude`
+    )
+VALUES (
+        56,
+        7.146174,
+        -73.126335
+    );
+CREATE TABLE IF NOT EXISTS `likes`(
+    `post_id` INT NOT NULL,
+    `user_id` INT NOT NULL,
+    PRIMARY KEY (`post_id`, `user_id`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8;
+ALTER TABLE `likes`
+ADD FOREIGN KEY (`post_id`) REFERENCES `posts`(`id`) ON DELETE CASCADE;
+ALTER TABLE `likes`
+ADD FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE;
+use fastapi;
+CREATE TABLE IF NOT EXISTS `likes`(
+    `post_id` INT UNSIGNED NOT NULL,
+    `user_id` INT UNSIGNED NOT NULL,
+    PRIMARY KEY (`post_id`, `user_id`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8;
+ALTER TABLE `likes`
+ADD FOREIGN KEY (`post_id`) REFERENCES `posts`(`id`) ON DELETE CASCADE;
+ALTER TABLE `likes`
+ADD FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE;
+CREATE TABLE IF NOT EXISTS `likes` (
+    `post_id` INT UNSIGNED NOT NULL,
+    `user_id` INT UNSIGNED NOT NULL,
+    PRIMARY KEY (`post_id`, `user_id`),
+    FOREIGN KEY (`post_id`) REFERENCES `posts`(`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET = utf8;
+INSERT INTO `likes` (`post_id`, `user_id`)
+VALUES (55, 7),
+    (56, 7),
+    (58, 6),
+    (59, 7),
+    (55, 6);
+DELIMITER // CREATE TRIGGER insert_like_trigger
+AFTER
+INSERT ON likes FOR EACH ROW BEGIN
+UPDATE posts
+SET likes = likes + 1
+WHERE id = NEW.post_id;
+END;
+// DELIMITER // CREATE TRIGGER delete_like_trigger
+AFTER DELETE ON likes FOR EACH ROW BEGIN
+UPDATE posts
+SET likes = likes - 1
+WHERE id = OLD.post_id;
+END;
+// DELIMITER;
