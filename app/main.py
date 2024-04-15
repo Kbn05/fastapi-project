@@ -1,8 +1,12 @@
 from fastapi import FastAPI
 from .routers import posts, users, auth, location
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+MAX_REQUEST_SIZE_BYTES = 100 * 1024 * 1024  # 100 MB
 
-app = FastAPI()
+app = FastAPI(max_request_size=MAX_REQUEST_SIZE_BYTES)
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
 
 # my_posts = [{"title": "Hello World", "content": "This is my first post", "id": 1},
 #             {"title": "Second Post", "content": "This is my second post", "id": 2},

@@ -1,4 +1,4 @@
-from fastapi import Response, status, HTTPException, APIRouter, Depends
+from fastapi import Response, status, HTTPException, APIRouter, Depends, File, UploadFile, Form
 from database.conn import cursor, mydbConnect
 from app.schema.post import CreatePost, ResponsePost
 from .. import oauth2
@@ -15,6 +15,7 @@ async def posts(limit: int = 10, token: int = Depends(oauth2.get_current_user), 
     cursor.execute(
         "SELECT posts.*, users.id, users.username, users.email, users.created_at FROM posts INNER JOIN users ON posts.author_id = users.id WHERE posts.content LIKE %s ORDER BY users.created_at DESC LIMIT %s", ('%' + search + '%', limit,))
     my_posts = cursor.fetchall()
+    print(my_posts)
     post_list = []
     if my_posts:
         for post in my_posts:
@@ -22,15 +23,16 @@ async def posts(limit: int = 10, token: int = Depends(oauth2.get_current_user), 
                 "id": post[0],
                 "title": post[1],
                 "content": post[2],
-                "published": post[3],
+                "published": bool(post[3]),
                 "likes": post[4],
                 "created_at": post[5],
                 "author": {
-                    "id": post[7],
-                    "username": post[8],
-                    "email": post[9],
-                    "created_at": post[10]
-                }
+                    "id": post[6],
+                    "username": post[9],
+                    "email": post[10],
+                    "created_at": post[11]
+                },
+                "image": 'http://127.0.0.1/static/' + post[7] if post[7] else 'http://127.0.0.1/static/default.jpg'
             }
             post_list.append(post_dict)
         return post_list
@@ -44,21 +46,22 @@ async def posts(limit: int = 10, token: int = Depends(oauth2.get_current_user), 
 async def post(id: int, response: Response):
     cursor.execute("SELECT posts.*, users.id, users.username, users.email, users.created_at FROM posts INNER JOIN users ON posts.author_id = users.id WHERE posts.id = %s", (id,))
     my_posts = cursor.fetchone()
-    print(my_posts[0])
+    print(my_posts)
     if my_posts:
         post_dict = {
             "id": my_posts[0],
             "title": my_posts[1],
             "content": my_posts[2],
-            "published": my_posts[3],
+            "published": bool(my_posts[3]),
             "likes": my_posts[4],
             "created_at": my_posts[5],
             "author": {
-                "id": my_posts[7],
-                "username": my_posts[8],
-                "email": my_posts[9],
-                "created_at": my_posts[10]
-            }
+                "id": my_posts[6],
+                "username": my_posts[9],
+                "email": my_posts[10],
+                "created_at": my_posts[11]
+            },
+            "image": 'http://127.0.0.1/static/' + my_posts[7] if my_posts[7] else 'http://127.0.0.1/static/default.jpg'
         }
         return post_dict
     # for post in my_posts:
@@ -70,20 +73,55 @@ async def post(id: int, response: Response):
 
 # Create a route to handle POST requests sent to the /newpost path
 
+# @router.get("/posts/{id}/photo", status_code=status.HTTP_201_CREATED, response_model=ResponsePost)
+
 
 @router.post("/newpost", status_code=status.HTTP_201_CREATED, response_model=ResponsePost)
-async def newpost(post: CreatePost, token: int = Depends(oauth2.get_current_user)):
-    cursor.execute("INSERT INTO posts (title, content, published, likes, author_id) VALUES (%s, %s, %s, %s, %s)",
-                   (post.title, post.content, post.published, post.likes, token[2]))
+async def newpost(
+    title: str = Form(...),
+    content: str = Form(...),
+    published: bool = True,
+    likes: int = 0,
+    token: int = Depends(oauth2.get_current_user),
+    file: UploadFile = Form(...)
+):
+    file.filename = f"{file.filename}"
+    contentFile = await file.read()
+    with open(f"app/static/{file.filename}", "wb") as image:
+        image.write(contentFile)
+
+    cursor.execute(
+        "INSERT INTO posts (title, content, published, likes, author_id, image) VALUES (%s, %s, %s, %s, %s, %s)",
+        (title, content, published, likes, token[2], file.filename)
+    )
     mydbConnect.commit()
     post_id = cursor.lastrowid
-    response_data = {"id": post_id, "title": post.title,
-                     "content": post.content, "likes": int(post.likes), "author": {"id": token[2], "username": token[0], "email": token[1], "created_at": token[3]}}
+
+    response_data = {
+        "id": post_id,
+        "title": title,
+        "content": content,
+        "likes": likes,
+        "author": {
+            "id": token[2],
+            "username": token[0],
+            "email": token[1],
+            "created_at": token[3]
+        },
+        "image": file.filename,
+    }
     return ResponsePost(**response_data)
     # return f"Post {post.title} created successfully"
 
-# Create a route to handle DELETE requests sent to the /posts/{id} path
+# @router.post("/uploadfile", status_code=status.HTTP_201_CREATED)
+# async def upload_file(file: UploadFile = File(...)):
+#     file.filename = f"{file.filename}"
+#     content = await file.read()
+#     with open(f"app/static/{file.filename}", "wb") as image:
+#         image.write(content)
+#     return {"filename": file.filename}
 
+# Create a route to handle DELETE requests sent to the /posts/{id} path
 
 @router.delete("/posts/{id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_post(id: int, token: int = Depends(oauth2.get_current_user)):
@@ -103,22 +141,38 @@ async def delete_post(id: int, token: int = Depends(oauth2.get_current_user)):
 
 
 @router.put("/posts/{id}", status_code=status.HTTP_202_ACCEPTED, response_model=ResponsePost)
-async def update_post(id: int, post_a: CreatePost, token: int = Depends(oauth2.get_current_user)):
-    cursor.execute("SELECT author_id FROM posts WHERE id = %s", (id,))
+async def update_post(id: int,title: str = Form(...),
+    content: str = Form(...),
+    published: bool = True,
+    likes: int = 0,
+    file: UploadFile = Form(None),
+    token: int = Depends(oauth2.get_current_user)):
+    cursor.execute("SELECT author_id, image FROM posts WHERE id = %s", (id,))
     my_posts = cursor.fetchone()
     if my_posts:
         post_dict = dict(zip(cursor.column_names, my_posts))
         if post_dict['author_id'] != token[2]:
             raise HTTPException(
                 status_code=403, detail="You are not authorized to update this post")
-    cursor.execute("UPDATE posts SET title = %s, content = %s, published = %s, likes = %s, author_id = %s WHERE id = %s", (
-        post_a.title, post_a.content, post_a.published, post_a.likes, token[2], id))
+    cursor.execute("UPDATE posts SET title = %s, content = %s, published = %s, likes = %s, author_id = %s, image = %s WHERE id = %s", (
+        title, content, published, likes, token[2], file.filename if file.filename else my_posts.image, id))
     mydbConnect.commit()
     if cursor.rowcount < 1:
         raise HTTPException(status_code=404, detail="Post not found")
     post_id = cursor.lastrowid
-    response_data = {"id": id, "title": post_a.title,
-                     "content": post_a.content, "likes": int(post_a.likes), "author": {"id": token[2], "username": token[0], "email": token[1], "created_at": token[3]}}
+    response_data = {
+        "id": post_id,
+        "title": title,
+        "content": content,
+        "likes": likes,
+        "author": {
+            "id": token[2],
+            "username": token[0],
+            "email": token[1],
+            "created_at": token[3]
+        },
+        "image": file.filename,
+    }
     return ResponsePost(**response_data)
 
 @router.get("/posts/{id}/likes", status_code=status.HTTP_202_ACCEPTED)

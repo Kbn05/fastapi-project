@@ -12,6 +12,7 @@ class Post(BaseModel):
     published: bool = True
     likes: Optional[int] = 0
     created_at: datetime = datetime.now()
+    image: Optional[str] = None
 
 
 class CreatePost(Post):

@@ -12,6 +12,9 @@ router = APIRouter(
 
 @router.post("/login", response_model=Token)
 async def login(auth: OAuth2PasswordRequestForm = Depends()):
+    print(type(auth.username))
+    print(type(auth))
+    print(auth.scopes)
     cursor.execute("SELECT username, email, password, id FROM users WHERE username = %s OR email = %s",
                    (auth.username, auth.username))
     user = cursor.fetchone()

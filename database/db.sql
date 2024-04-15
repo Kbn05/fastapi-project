@@ -213,3 +213,5 @@ SET likes = likes - 1
 WHERE id = OLD.post_id;
 END;
 // DELIMITER;
+ALTER TABLE `posts`
+ADD COLUMN `image` VARCHAR(255) NOT NULL;
