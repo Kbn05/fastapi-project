@@ -13,6 +13,10 @@ class Post(BaseModel):
     likes: Optional[int] = 0
     created_at: datetime = datetime.now()
     image: Optional[str] = None
+    datetime: datetime
+    type_event: str
+    location: str
+    tags: str
 
 
 class CreatePost(Post):
